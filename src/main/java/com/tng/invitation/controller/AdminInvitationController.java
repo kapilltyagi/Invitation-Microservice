@@ -22,6 +22,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.validation.Valid;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -106,20 +107,6 @@ public class AdminInvitationController {
     @PostMapping(value = "/upload-filePart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_STREAM_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.OK)
     public Mono<List<InvitationsDTO>> upload(@RequestPart("file") FilePart filePart) {
-        String fileName ="MassUploadResult.csv";
-        Mono<List<InvitationsDTO>> data = getLines(filePart).collectList();
-        System.out.println(data);
-        //System.out.println("Data==>"+data);
-        /*ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,  "attachment; filename=" + fileName)
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                .body(csvWriterService.generateCsv(invitationDtoList)
-                        .flatMap(x -> {
-                            Resource resource = new InputStreamResource(x);
-
-                            return Mono.just(resource);
-                        }));*/
-
         return getLines(filePart).collectList();
 
 
@@ -144,8 +131,6 @@ public class AdminInvitationController {
         List<InvitationsDTO> invitationsDTOList = new ArrayList<>();
 
         Supplier<Stream<String>> streamSupplier = string::lines;
-        // streamSupplier.get().forEach(System.out::println);
-        // var isFileOk = streamSupplier.get().allMatch(line -> line.matches("^01\\d{9}$|^1\\d{9}|^d{0}$"));
         List<String> list = streamSupplier.get().collect(Collectors.toList());
         list.remove(0);
         for (String s : list) {
@@ -203,6 +188,7 @@ public class AdminInvitationController {
             invitationsDTOList.add(invitationsDTO);
 
         }
+        //Mono<ByteArrayInputStream> csvServiceOutput = csvWriterService.generateCsv(invitationsDTOList);
         invitationsDTOList.stream().forEach(System.out::println);
         //return streamSupplier.get().collect(Collectors.toList());
         return invitationsDTOList;
