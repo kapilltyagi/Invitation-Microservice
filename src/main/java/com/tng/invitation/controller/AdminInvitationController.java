@@ -8,7 +8,10 @@ import com.tng.invitation.service.InvitationsValidationService;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,13 +43,14 @@ import java.util.stream.Stream;
 public class AdminInvitationController {
 
     @Autowired
+    private CsvWriterService csvWriterService;
+    @Autowired
     private InvitationRepositoryInterface invitationRepositoryInterface;
 
     @Autowired
     private InvitationsValidationService invitationsValidationService;
 
-    @Autowired
-    private CsvWriterService csvWriterService;
+
 
     @GetMapping()
     public Flux<AdminInvitations> getAllVendorInvitation() {
@@ -101,19 +105,28 @@ public class AdminInvitationController {
     // use single FilePart for single file upload
     @PostMapping(value = "/upload-filePart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_STREAM_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.OK)
-    public Mono<List<String>> upload(@RequestPart("file") FilePart filePart) {
+    public Mono<List<InvitationsDTO>> upload(@RequestPart("file") FilePart filePart) {
+        String fileName ="MassUploadResult.csv";
+        Mono<List<InvitationsDTO>> data = getLines(filePart).collectList();
+        System.out.println(data);
+        //System.out.println("Data==>"+data);
+        /*ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,  "attachment; filename=" + fileName)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                .body(csvWriterService.generateCsv(invitationDtoList)
+                        .flatMap(x -> {
+                            Resource resource = new InputStreamResource(x);
 
-        /*
-          To see the response beautifully we are returning strings as Mono List
-          of String. We could have returned Flux<String> from here.
-          If you are curious enough then just return Flux<String> from here and
-          see the response on Postman
-         */
+                            return Mono.just(resource);
+                        }));*/
+
         return getLines(filePart).collectList();
+
+
     }
 
 
-    public Flux<String> getLines(FilePart filePart) {
+    public Flux<InvitationsDTO> getLines(FilePart filePart) {
         return filePart.content()
                 .map(dataBuffer -> {
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
@@ -123,11 +136,12 @@ public class AdminInvitationController {
                     return new String(bytes, StandardCharsets.UTF_8);
                 })
                 .map(this::processAndGetLinesAsList)
+
                 .flatMapIterable(Function.identity());
     }
 
-    private List<String> processAndGetLinesAsList(String string) {
-        List<InvitationsDTO> vacationList = new ArrayList<>();
+    private List<InvitationsDTO> processAndGetLinesAsList(String string) {
+        List<InvitationsDTO> invitationsDTOList = new ArrayList<>();
 
         Supplier<Stream<String>> streamSupplier = string::lines;
         // streamSupplier.get().forEach(System.out::println);
@@ -186,11 +200,12 @@ public class AdminInvitationController {
                 invitationsDTO.setResult("Error");
 
             }
-            vacationList.add(invitationsDTO);
+            invitationsDTOList.add(invitationsDTO);
 
         }
-        vacationList.stream().forEach(System.out::println);
-        return streamSupplier.get().collect(Collectors.toList());
+        invitationsDTOList.stream().forEach(System.out::println);
+        //return streamSupplier.get().collect(Collectors.toList());
+        return invitationsDTOList;
     }
 
 }
