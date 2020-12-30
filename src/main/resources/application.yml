@@ -1,0 +1,46 @@
+server:
+  port: ${PORT:8585}
+spring:
+  application:
+    name: invitation-ms
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      enabled: true
+
+
+---
+spring:
+  profiles: dev
+  devtools:
+    restart:
+      enabled: true
+  r2dbc: # should be under 'spring'
+    username: admin
+    password: postgres
+    url: r2dbc:postgresql://localhost/vendor_management
+admin:
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://localhost/vendor_management
+    username: admin
+    password: postgres
+    baselineOnMigrate: true
+  database:
+    host: localhost
+    port: 5432
+    databaseName: vendor_management
+    username: admin
+    password: postgres
+
+---
+spring:
+  profiles: qa
+---
+spring:
+  profiles: uat
+---
+spring:
+  profiles: prod
+
