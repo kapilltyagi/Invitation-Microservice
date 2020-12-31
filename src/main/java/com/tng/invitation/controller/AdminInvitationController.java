@@ -96,9 +96,9 @@ public class AdminInvitationController {
         return invitationRepositoryInterface.deleteById(id);
     }
 
-    @PostMapping(value = "/batchUpload1", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Object> batchUploadInvitationFromCsv1(@RequestPart("files") FilePart files) throws IOException {
-        File convertFile = new File("C:\\workspaces_bini_1\\" + files.filename());
+    @PostMapping(value = "/batchUpload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Object> batchUploadInvitationFromCsv(@RequestPart("files") FilePart files) throws IOException {
+        File convertFile = new File(files.filename());
         convertFile.createNewFile();
         System.out.println(files);
         FileOutputStream fout = new FileOutputStream(convertFile);
@@ -108,16 +108,16 @@ public class AdminInvitationController {
     }
 
     // use single FilePart for single file upload
-    @PostMapping(value = "/upload-filePart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_STREAM_JSON_VALUE)
+    @PostMapping(value = "/uploadCsv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_STREAM_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.OK)
-    public Mono<List<InvitationsDTO>> upload(@RequestPart("file") FilePart filePart) {
+    public Mono<List<AdminInvitations>> upload(@RequestPart("file") FilePart filePart) {
         return getLines(filePart).collectList();
 
 
     }
 
 
-    public Flux<InvitationsDTO> getLines(FilePart filePart) {
+    public Flux<AdminInvitations> getLines(FilePart filePart) {
         return filePart.content()
                 .map(dataBuffer -> {
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
@@ -128,7 +128,22 @@ public class AdminInvitationController {
                 })
                 .map(this::processAndGetLinesAsList)
 
-                .flatMapIterable(Function.identity());
+                .flatMapIterable(Function.identity())
+                .filter(invitation -> invitation.getResult().equals("Success"))
+                .map(data -> {
+                    AdminInvitations invitations = new AdminInvitations();
+                    invitations.setFirstName(data.getFirstName());
+                    invitations.setLastName(data.getLastName());
+                    invitations.setCompanyName(data.getCompanyName());
+                    invitations.setEmail(data.getEmail());
+                    invitations.setCountryAbbr(data.getCountryAbbr());
+                    invitations.setStateProvinceAbbr(data.getStateProvinceAbbr());
+                    invitations.setInvitedTo(data.getInvitedTo());
+                    return invitations;
+                })
+                .flatMap(data -> invitationRepositoryInterface.save(data));
+
+
     }
 
     private List<InvitationsDTO> processAndGetLinesAsList(String string) {
@@ -210,7 +225,7 @@ public class AdminInvitationController {
         //return streamSupplier.get().collect(Collectors.toList());
         //saving success records in DB
 
-        Flux.fromIterable(invitationsDTOList)//.filter(invitation -> invitation.getResult().equals("Success"))
+        /*Flux.fromIterable(invitationsDTOList).filter(invitation -> invitation.getResult().equals("Success"))
                 .map(data -> {
                     AdminInvitations invitations = new AdminInvitations();
                     invitations.setFirstName(data.getFirstName());
@@ -222,7 +237,7 @@ public class AdminInvitationController {
                     invitations.setInvitedTo(data.getInvitedTo());
                     return invitations;
                 })
-                .flatMap(data -> invitationRepositoryInterface.save(data));
+                .flatMap(data -> invitationRepositoryInterface.save(data));*/
         return invitationsDTOList;
     }
 
