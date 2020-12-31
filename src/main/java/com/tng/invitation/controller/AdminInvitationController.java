@@ -2,6 +2,7 @@ package com.tng.invitation.controller;
 
 import com.tng.invitation.entity.AdminInvitations;
 import com.tng.invitation.entity.InvitationsDTO;
+import com.tng.invitation.repository.InvitationRepository;
 import com.tng.invitation.repository.InvitationRepositoryInterface;
 import com.tng.invitation.service.CsvWriterService;
 import com.tng.invitation.service.InvitationsValidationService;
@@ -42,6 +43,9 @@ import java.util.stream.Stream;
 @Valid
 @RequestMapping("/admin/invitation")
 public class AdminInvitationController {
+
+    @Autowired
+    private InvitationRepository invitationRepository;
 
     @Autowired
     private CsvWriterService csvWriterService;
@@ -145,6 +149,7 @@ public class AdminInvitationController {
             invitationsDTO.setInvitedTo(arr[6]);
             invitationsDTO.setResult("Success");
 
+
             boolean firstNamePresent = invitationsValidationService.isFirstNamePresent(arr[0]);
             if (!firstNamePresent) {
                 invitationsDTO.setResult("Error");
@@ -185,12 +190,39 @@ public class AdminInvitationController {
                 invitationsDTO.setResult("Error");
 
             }
+            String emailFromDB = invitationRepository.findByEmail(arr[3]);
+            if (emailFromDB != null ) {
+                if (invitationsDTO.getMessage() == null) {
+                    invitationsDTO.setMessage("Email already exist");
+                }
+                invitationsDTO.setResult("Error");
+
+            }
+            if(invitationsDTO.getMessage()==null){
+                invitationsDTO.setMessage("");
+            }
             invitationsDTOList.add(invitationsDTO);
 
         }
         //Mono<ByteArrayInputStream> csvServiceOutput = csvWriterService.generateCsv(invitationsDTOList);
-        invitationsDTOList.stream().forEach(System.out::println);
+        //invitationsDTOList.stream().forEach(System.out::println);
+        csvWriterService.createCsvFromList(invitationsDTOList);
         //return streamSupplier.get().collect(Collectors.toList());
+        //saving success records in DB
+
+        Flux.fromIterable(invitationsDTOList)//.filter(invitation -> invitation.getResult().equals("Success"))
+                .map(data -> {
+                    AdminInvitations invitations = new AdminInvitations();
+                    invitations.setFirstName(data.getFirstName());
+                    invitations.setLastName(data.getLastName());
+                    invitations.setCompanyName(data.getCompanyName());
+                    invitations.setEmail(data.getEmail());
+                    invitations.setCountryAbbr(data.getCountryAbbr());
+                    invitations.setStateProvinceAbbr(data.getStateProvinceAbbr());
+                    invitations.setInvitedTo(data.getInvitedTo());
+                    return invitations;
+                })
+                .flatMap(data -> invitationRepositoryInterface.save(data));
         return invitationsDTOList;
     }
 
