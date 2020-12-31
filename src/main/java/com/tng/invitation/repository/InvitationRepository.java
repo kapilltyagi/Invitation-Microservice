@@ -28,7 +28,7 @@ public class InvitationRepository {
                 .fetch()
                 .one().map(x -> x.getEmail());
 
-            System.out.println("result==" + result.toFuture().get());
+            //System.out.println("result==" + result.toFuture().get());
             return result.toFuture().get();
         }catch (Exception e){}
 

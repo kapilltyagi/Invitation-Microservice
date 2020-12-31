@@ -9,6 +9,7 @@ import com.tng.invitation.entity.AdminInvitations;
 import com.tng.invitation.entity.InvitationsDTO;
 import com.tng.invitation.repository.InvitationRepository;
 import com.tng.invitation.repository.InvitationRepositoryInterface;
+import com.tng.invitation.utils.AppConstants;
 import com.tng.invitation.utils.ByteArrayInOutStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -18,17 +19,17 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.tng.invitation.utils.AppConstants.*;
 
 @Service
 public class CsvWriterService {
@@ -43,7 +44,7 @@ public class CsvWriterService {
     private InvitationRepository invitationRepository;
 
     public Mono<ByteArrayInputStream> generateCsv(List<InvitationsDTO> invitationDtoList) {
-        String[] columns = {"firstName", "lastName", "companyName", "email", "countryAbbr", "stateProvinceAbbr", "invitedTo", "result", "message"};
+        String[] columns = {"First Name", "Last Name", "Company", "Email", "Country", "Province/State", "Result", "Message"};
 
 
         return Mono.fromCallable(() -> {
@@ -75,11 +76,10 @@ public class CsvWriterService {
     }
 
     public String createCsvFromList(List<InvitationsDTO> invitationDtoList) {
-        String FILE_HEADER = "firstName,lastName,companyName,email,countryAbbr,stateProvinceAbbr,invitedTo,result,message";
-        String COMMA_DELIMITER = ",";
-        String NEW_LINE_SEPRATOR = "\n";
+        File file = null;
         try {
-            FileWriter fileWriter = new FileWriter("MassUploadResult.csv");
+            file = new File("MassUploadResult"+System.currentTimeMillis()+".csv");
+            FileWriter fileWriter = new FileWriter(file);
             fileWriter.append(FILE_HEADER);
             for (InvitationsDTO invitations : invitationDtoList) {
                 fileWriter.append(NEW_LINE_SEPRATOR);
@@ -102,14 +102,13 @@ public class CsvWriterService {
                 fileWriter.append(invitations.getStateProvinceAbbr());
                 fileWriter.append(COMMA_DELIMITER);
 
-                fileWriter.append(invitations.getInvitedTo());
-                fileWriter.append(COMMA_DELIMITER);
-
                 fileWriter.append(invitations.getResult());
                 fileWriter.append(COMMA_DELIMITER);
 
                 fileWriter.append(invitations.getMessage());
             }
+            System.out.println("file.getAbsolutePath()="+file.getAbsolutePath());
+
             fileWriter.flush();
             fileWriter.close();
 
@@ -117,7 +116,7 @@ public class CsvWriterService {
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
-        return "CSV Successfully Written";
+        return "CSV Created at location: "+file.getAbsolutePath();
     }
 
 
@@ -143,6 +142,7 @@ public class CsvWriterService {
                     invitations.setCountryAbbr(data.getCountryAbbr());
                     invitations.setStateProvinceAbbr(data.getStateProvinceAbbr());
                     invitations.setInvitedTo(data.getInvitedTo());
+                    invitations.setInvitationStatus(AppConstants.INVITATION_STATUS);
                     return invitations;
                 })
                 .flatMap(data -> invitationRepositoryInterface.save(data));
@@ -157,7 +157,7 @@ public class CsvWriterService {
         List<String> list = streamSupplier.get().collect(Collectors.toList());
         list.remove(0);
         for (String s : list) {
-            String[] arr = s.split(",");
+            String[] arr = s.split(COMMA_DELIMITER);
             InvitationsDTO invitationsDTO = new InvitationsDTO();
             invitationsDTO.setFirstName(arr[0]);
             invitationsDTO.setLastName(arr[1]);
@@ -166,66 +166,67 @@ public class CsvWriterService {
             invitationsDTO.setCountryAbbr(arr[4]);
             invitationsDTO.setStateProvinceAbbr(arr[5]);
             invitationsDTO.setInvitedTo(arr[6]);
-            invitationsDTO.setResult("Success");
+            invitationsDTO.setResult(SUCCESS);
+
 
 
             boolean firstNamePresent = invitationsValidationService.isFirstNamePresent(arr[0]);
             if (!firstNamePresent) {
-                invitationsDTO.setResult("Error");
-                invitationsDTO.setMessage("First Name is a required field");
+                invitationsDTO.setResult(ERROR);
+                invitationsDTO.setMessage(REQUIRED_FIRST_NAME);
             }
             boolean lastNamePresent = invitationsValidationService.isLastNamePresent(arr[1]);
             if (!lastNamePresent) {
                 if (invitationsDTO.getMessage() == null) {
-                    invitationsDTO.setMessage("Last Name is a require field");
+                    invitationsDTO.setMessage(REQUIRED_LAST_NAME);
                 }
-                invitationsDTO.setResult("Error");
+                invitationsDTO.setResult(ERROR);
 
             }
 
             boolean emailPresent = invitationsValidationService.isEmailPresent(arr[3]);
             if (!emailPresent) {
                 if (invitationsDTO.getMessage() == null) {
-                    invitationsDTO.setMessage("Email is a require field");
+                    invitationsDTO.setMessage(REQUIRED_EMAIL);
                 }
-                invitationsDTO.setResult("Error");
+                invitationsDTO.setResult(ERROR);
 
             }
 
             boolean isProvinceStateValid = invitationsValidationService.isProvinceStateValid(arr[5]);
             if (!isProvinceStateValid) {
                 if (invitationsDTO.getMessage() == null) {
-                    invitationsDTO.setMessage("State should be a valid two letter code");
+                    invitationsDTO.setMessage(VALID_STATE_PROVINCE);
                 }
-                invitationsDTO.setResult("Error");
+                invitationsDTO.setResult(ERROR);
 
             }
 
             boolean isValidEmail = invitationsValidationService.isValidEmail(arr[3]);
             if (!isValidEmail) {
                 if (invitationsDTO.getMessage() == null) {
-                    invitationsDTO.setMessage("Email is in incorrect format");
+                    invitationsDTO.setMessage(EMAIL_INCORRECT_FORMAT);
                 }
-                invitationsDTO.setResult("Error");
+                invitationsDTO.setResult(ERROR);
 
             }
             String emailFromDB = invitationRepository.findByEmail(arr[3]);
             if (emailFromDB != null ) {
                 if (invitationsDTO.getMessage() == null) {
-                    invitationsDTO.setMessage("Email already exist");
+                    invitationsDTO.setMessage(EMAIL_ALREADY_EXISTS);
                 }
-                invitationsDTO.setResult("Error");
+                invitationsDTO.setResult(ERROR);
 
             }
             if(invitationsDTO.getMessage()==null){
-                invitationsDTO.setMessage("");
+                invitationsDTO.setMessage(NULL_DELIMITER);
             }
             invitationsDTOList.add(invitationsDTO);
 
         }
         //Mono<ByteArrayInputStream> csvServiceOutput = csvWriterService.generateCsv(invitationsDTOList);
         //invitationsDTOList.stream().forEach(System.out::println);
-        createCsvFromList(invitationsDTOList);
+        String csvLocation = createCsvFromList(invitationsDTOList);
         //return streamSupplier.get().collect(Collectors.toList());
         //saving success records in DB
 

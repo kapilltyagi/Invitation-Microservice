@@ -8,5 +8,5 @@ import java.util.UUID;
 
 public interface InvitationRepositoryInterface extends ReactiveCrudRepository<AdminInvitations, UUID> {
 
-    int existsByEmail(String email);
+    //int existsByEmail(String email);
 }

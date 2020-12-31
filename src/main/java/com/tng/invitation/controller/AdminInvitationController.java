@@ -113,7 +113,6 @@ public class AdminInvitationController {
     public Mono<List<AdminInvitations>> upload(@RequestPart("file") FilePart filePart) {
         return csvWriterService.getLines(filePart).collectList();
 
-
     }
 
 
